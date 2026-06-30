@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+# Environment Variables
+.env
+.env.*
+# IDE
+.vscode/
+.idea/
+# SSL / TLS certificates and keys
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
