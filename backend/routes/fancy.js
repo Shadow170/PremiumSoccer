@@ -5,6 +5,7 @@ const router = express.Router();
 
 router.get("/getPSFancy", fancy.getPSFancy);
 router.get("/getPSMatchingFancy", fancy.premiumMatchingFancy);
+router.get("/getPFancy", fancy.getPFancy);
 router.post("/updateDisableSetting", fancy.updateDisableSetting);
 router.get("/getDisableSetting", fancy.getDisableSetting);
 
