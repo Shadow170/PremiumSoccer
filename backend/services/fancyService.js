@@ -17,24 +17,6 @@ export const getPSFancyService = async ({eventId}) => {
         };
     }
 
-    // let data
-    // if (result) {
-    //     const result_data = { eventP: body.eventId + '-premium', eventId: body.eventId, provider: 'premium', data: result }
-
-    //     data = {
-    //         message: 'Fancy Fetched!',
-    //         result: result_data,
-    //         status: 1
-    //     }
-    // }
-    // else {
-    //     data = {
-    //         message: 'Not Found!',
-    //         result: [],
-    //         status: 0
-    //     }
-    // }
-
     return {
         status: 1,
         message: "Fancy Fetched!",
@@ -48,62 +30,67 @@ export const getPSFancyService = async ({eventId}) => {
    
 }
 
-export const premiumMatchingFancyService = async (body) => {
-    const eventId = body.eventId + '-p';
-    const sid = body.sid;
-    const result = await client.get('Fancy-' + eventId);
-   
-    const lt = JSON.parse(await client.get('ACTIVE_MATCHES'))?.find(dt => dt.eventId == body.eventId);
-    let events = {};
+export const premiumMatchingFancyService = async ({ eventId, sid }) => {
+    const premiumEventId = `${eventId}-p`;
 
-    let result_data;
-    if (lt) {
-        events = { eventId: lt.eventId, status: lt.status, volumeCheck: lt.is_volume, markets: lt.markets }
-    }
+    const [fancyData, activeMatches] = await Promise.all([
+        client.get(`Fancy-${premiumEventId}`),
+        client.get("ACTIVE_MATCHES")
+    ]);
 
-    if (result) {
-        const response = JSON.parse(result)?.sportsBookMarket?.filter(dt => String(dt.id) === String(sid)) || [];
-        let nresult = { eventP: body.eventId + '-premium', eventId: body.eventId, provider: 'premium', data: response };
+    const match = activeMatches ? JSON.parse(activeMatches).find(item => item.eventId == eventId) : null;
 
-        result_data = {
-            message: 'Fancy Fetched!',
-            result: nresult,
-            status: 1,
-            events
-        }
-    }
-    else {
-        result_data = {
-            message: 'Not Found!',
-            result: [],
+    const events = match ? {
+              eventId: match.eventId,
+              status: match.status,
+              volumeCheck: match.is_volume,
+              markets: match.markets
+          }
+        : {};
+
+    if (!fancyData) {
+        return {
             status: 0,
+            message: "Not Found!",
+            result: [],
             events
-        }
+        };
     }
 
-    return result_data;
-}
+    const sportsBookMarket =  JSON.parse(fancyData)?.sportsBookMarket ?? [];
 
-export const updateDisableSettingService = async (body) => {
-    const { fancy, status } = body;
-
-    const resp = JSON.parse(await client.get('blocked')) || [];
-
-    let allData = [];
-    if (status == 'remove') {
-        allData = resp.filter(dt => dt != fancy);
-    }
-    else {
-        allData = [...resp, fancy];
-    }
-
-    const newRes = [...new Set(allData)];
-    await client.set('blocked', JSON.stringify(newRes));
+    const response = sportsBookMarket.filter(market => String(market.id) === String(sid));
 
     return {
-        message: 'updated'
+        status: 1,
+        message: "Fancy Fetched!",
+        result: {
+            eventP: `${eventId}-premium`,
+            eventId,
+            provider: "premium",
+            data: response
+        },
+        events
+    };
+};
+
+export const updateDisableSettingService = async ({ fancy, status }) => {
+    const blocked = JSON.parse(await client.get("blocked") || "[]");
+
+    const blockedSet = new Set(blocked);
+
+    if (status === "remove") {
+        blockedSet.delete(fancy);
+    } else {
+        blockedSet.add(fancy);
     }
-}
+
+    await client.set("blocked", JSON.stringify([...blockedSet]));
+
+    return {
+        message: "Updated"
+    };
+};
 
 export const getDisableSettingService = async (body) => {
     const data = JSON.parse(await client.get('blocked')) || [];
@@ -118,28 +105,48 @@ export const getPremiumFancyService = async (body) => {
     return data;
 }
 
-export const getPFancyService = async (body) => {
-    const premium = await Promise.allSettled([client.get('Fancy-' + body.eventId + '-p'), client.get('ACTIVE_MATCHES'), client.get('blocked')]);
-    const dt = JSON.parse(premium[0]?.value);
-    const lt = JSON.parse(premium[1]?.value)?.find(dt => dt.eventId == eventId);
-    const blocked = JSON.parse(premium[2]?.value)?.map(dt => dt.toUpperCase()) || [];
-    let events = {};
-    if (lt) {
-        events = { eventId: lt.eventId, status: lt.status, volumeCheck: lt.is_volume, markets: lt.markets }
-    }
+export const getPFancyService = async ({ eventId }) => {
+    const [fancyData, activeMatches, blockedData] = await Promise.all([
+        client.get(`Fancy-${eventId}-p`),
+        client.get("ACTIVE_MATCHES"),
+        client.get("blocked")
+    ]);
 
-    if (dt) {
-        const result = dt;
+    const fancy = fancyData ? JSON.parse(fancyData) : null;
+    const matches = activeMatches ? JSON.parse(activeMatches) : [];
+    const blocked = blockedData ? JSON.parse(blockedData).map(word => word.toUpperCase()) : [];
+
+    const match = matches.find(item => item.eventId == eventId);
+
+    const events = match
+        ? {
+              eventId: match.eventId,
+              status: match.status,
+              volumeCheck: match.is_volume,
+              markets: match.markets
+          }
+        : {};
+
+    if (!fancy) {
         return {
-            Type: 'Premium', events, data: {
-                ...result, sportsBookMarket: result?.sportsBookMarket?.filter(dt => dt.apiSiteStatus == 'ACTIVE' && !blocked.some(
-                    (tn) => {
-                        return dt.marketName.toUpperCase().includes(tn);
-                    }))
-            }
+            Type: "Premium",
+            events,
+            data: []
         };
     }
-    else {
-        return { Type: 'Premium', events, data: [] };
-    }
-}
+
+    return {
+        Type: "Premium",
+        events,
+        data: {
+            ...fancy,
+            sportsBookMarket: fancy.sportsBookMarket.filter(market => {
+                if (market.apiSiteStatus !== "ACTIVE") return false;
+
+                const marketName = market.marketName.toUpperCase();
+
+                return !blocked.some(word => marketName.includes(word));
+            })
+        }
+    };
+};

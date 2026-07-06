@@ -50,6 +50,7 @@ const fetchMatches = async () => {
     }
 }
 
+let time = '';
 const getPS = async (eventId) => {
     const premium = await Promise.allSettled([client.get('Fancy-' + eventId + '-p'), client.get('ACTIVE_MATCHES'), client.get('blocked')]);
     const dt = JSON.parse(premium[0]?.value);
@@ -106,3 +107,17 @@ const MInterval = setInterval(() => {
 setInterval(() => {
     fetchMatches();
 }, 500);
+
+const checkTimeDiff = () => {
+    if (!time) {
+        return true;
+    }
+
+    let currentTime = new Date();
+    let diffInMinutes = (currentTime - time) / (1000 * 60);
+    if (diffInMinutes >= 10) {
+        return true;
+    }
+
+    return false;
+}

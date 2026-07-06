@@ -91,12 +91,12 @@ else {
 
     socket.on('disconnect_premium', function (data) {
       socket.leave('room-PRMFancy/Auto/' + data);
-      delete io.sockets.adapter.rooms[socket.id];
+      // delete io.sockets.adapter.rooms[socket.id];
     });
 
     socket.on('disconnect', () => {
       //console.log(`Socket ${socket.id} disconnected.`);
-      delete io.sockets.adapter.rooms[socket.id];
+     
     });
   });
   server.on("error", onError);
